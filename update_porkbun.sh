@@ -36,22 +36,28 @@ else
    rrttl=600
 fi
 
-# Domain and subdomain
-real_domain=$(echo $domain | grep -oE [a-zA-Z0-9]+\.[a-zA-Z0-9]+$)
-subdomain=${domain%".$real_domain"}
-if [[ "$real_domain" == "$subdomain" ]]; then
-   subdomain=
-fi
+IFS=';'
+set -- $domain
 
-# Get Porkbun's current resource record
-old_rrvalue=$(curl -s -X POST "https://porkbun.com/api/json/v3/dns/retrieveByNameType/$real_domain/$rrtype/$subdomain" -H "Content-Type: application/json" --data "{ \"apikey\": \"$username\", \"secretapikey\": \"$password\" }" | grep -oE 'content":"([0-9.]+|[0-9a-fA-F:]+)"' | grep -oE '"([0-9][0-9.]+|[0-9a-fA-F][0-9a-fA-F:]+)"' | grep -oE '[0-9.]+|[0-9a-fA-F:]+')
+for domain in "$@"; do
+   
+   # Domain and subdomain
+   real_domain=$(echo $domain | grep -oE [a-zA-Z0-9]+\.[a-zA-Z0-9]+$)
+   subdomain=${domain%".$real_domain"}
+   if [[ "$real_domain" == "$subdomain" ]]; then
+      subdomain=
+   fi
 
-write_log 7 "Current IP for the domain is: $old_rrvalue"
+   # Get Porkbun's current resource record
+   old_rrvalue=$(curl -s -X POST "https://porkbun.com/api/json/v3/dns/retrieveByNameType/$real_domain/$rrtype/$subdomain" -H "Content-Type: application/json" --data "{ \"apikey\": \"$username\", \"secretapikey\": \"$password\" }" | grep -oE 'content":"([0-9.]+|[0-9a-fA-F:]+)"' | grep -oE '"([0-9][0-9.]+|[0-9a-fA-F][0-9a-fA-F:]+)"' | grep -oE '[0-9.]+|[0-9a-fA-F:]+')
 
-# Update resource record if necessary
-if [[ "$old_rrvalue" != "$rrvalue" ]]; then
-   write_log 7 "Updating DNS value because $old_rrvalue != $rrvalue"
-   curl -X POST "https://porkbun.com/api/json/v3/dns/editByNameType/$real_domain/$rrtype/$subdomain" -H "Content-Type: application/json" --data "{ \"apikey\": \"$username\", \"secretapikey\": \"$password\", \"content\": \"$rrvalue\", \"type\": \"$rrtype\", \"ttl\": \"$rrttl\"}"
-else
-   write_log 7 "No need to update DNS value."
-fi
+   write_log 7 "Current IP for the domain is: $old_rrvalue"
+
+   # Update resource record if necessary
+   if [[ "$old_rrvalue" != "$rrvalue" ]]; then
+      write_log 7 "Updating DNS value because $old_rrvalue != $rrvalue"
+      curl -X POST "https://porkbun.com/api/json/v3/dns/editByNameType/$real_domain/$rrtype/$subdomain" -H "Content-Type: application/json" --data "{ \"apikey\": \"$username\", \"secretapikey\": \"$password\", \"content\": \"$rrvalue\", \"type\": \"$rrtype\", \"ttl\": \"$rrttl\"}"
+   else
+      write_log 7 "No need to update DNS value."
+   fi
+done
